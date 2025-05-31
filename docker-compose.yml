@@ -15,12 +15,14 @@ services:
     restart: always
 
   backend:
-    image: backendjava  # <-- replace with your actual backend image name
+    build:
+      context: ./app-backend
+      dockerfile: Dockerfile
     container_name: backend
     depends_on:
       - postgres
     ports:
-      - "8085:8085"
+      - "8085:8080"  # Map host port 8085 to container port 8080 (as per Dockerfile)
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/crm
       SPRING_DATASOURCE_USERNAME: postgres
@@ -28,12 +30,14 @@ services:
     restart: always
 
   frontend:
-    image: registry.gitlab.com/cyberstalk0210/forserver/frontend:latest
+    build:
+      context: ./app-frontend
+      dockerfile: Dockerfile
     container_name: frontend
     depends_on:
       - backend
     ports:
-      - "3000:3000"
+      - "3000:80"  # Map host port 3000 to container port 80 (Nginx default in Dockerfile)
     restart: always
 
 volumes:

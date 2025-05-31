@@ -1,33 +1,28 @@
-# Use an official Gradle image to build the app
-FROM gradle:8.1.1-jdk17-alpine AS build
+# Stage 1: Build the Spring Boot app
+FROM gradle:8.6-jdk21 AS build
 
 WORKDIR /app
 
-# Copy Gradle wrapper and build files
-COPY gradlew .
-COPY gradle ./gradle
-COPY build.gradle .
-COPY settings.gradle .
+# Copy Gradle build files
+COPY app-backend/build.gradle app-backend/settings.gradle ./
+COPY app-backend/gradle ./gradle
 
-# Copy source code
-COPY src ./src
+# Copy the rest of the backend code
+COPY app-backend/src ./src
 
-# Make gradlew executable (if on Linux host)
-RUN chmod +x ./gradlew
+# Build the app (this will generate the JAR file)
+RUN gradle build --no-daemon
 
-# Build the project and create the executable jar (skip tests to speed up if you want)
-RUN ./gradlew clean bootJar --no-daemon
-
-# Use a lightweight OpenJDK image to run the app
-FROM eclipse-temurin:17-jdk-alpine
+# Stage 2: Run the Spring Boot app
+FROM openjdk:21-jdk-slim
 
 WORKDIR /app
 
-# Copy jar file from build stage
+# Copy the JAR file from the build stage
 COPY --from=build /app/build/libs/*.jar app.jar
 
-# Expose port your app listens on (default 8080)
+# Expose the port Spring Boot runs on (default is 8080)
 EXPOSE 8080
 
-# Run the jar
-ENTRYPOINT ["java","-jar","app.jar"]
+# Run the Spring Boot app
+CMD ["java", "-jar", "app.jar"]
