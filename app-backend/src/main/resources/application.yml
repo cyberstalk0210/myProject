@@ -2,7 +2,7 @@ spring:
   application:
     name: app-small-crm
   datasource:
-    url: jdbc:postgresql://localhost:5432/crm
+    url: jdbc:postgresql://postgres:5432/crm
     username: postgres
     password: root123
   jpa:
