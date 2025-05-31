@@ -1,0 +1,43 @@
+stages:
+  - build
+  - deploy
+
+variables:
+  APP_DIR: "/home/ubuntu/app"
+  EC2_USER: "ubuntu"
+  EC2_HOST: "ec2-13-127-136-236.ap-south-1.compute.amazonaws.com"
+  DOCKER_TLS_CERTDIR: ""
+
+build:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+    - docker build -t $CI_REGISTRY_IMAGE/backend:latest -f app-small-crm-master/Dockerfile ./app-small-crm-master
+    - docker build -t $CI_REGISTRY_IMAGE/frontend:latest -f crm-project-master/Dockerfile ./crm-project-master
+    - docker push $CI_REGISTRY_IMAGE/backend:latest
+    - docker push $CI_REGISTRY_IMAGE/frontend:latest
+  when: on_success
+
+deploy:
+  stage: deploy
+  image: ubuntu:latest
+  before_script:
+  - apt-get update -y
+  - apt-get install -y openssh-client rsync
+  - eval $(ssh-agent -s)
+  - mkdir -p ~/.ssh
+  - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+  - chmod 700 ~/.ssh
+  - ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
+
+  script:
+    - ssh "$EC2_USER@$EC2_HOST" "mkdir -p '$APP_DIR' && chmod 755 '$APP_DIR'"
+    - rsync -avz -e "ssh -o StrictHostKeyChecking=no" docker-compose.yml "$EC2_USER@$EC2_HOST:$APP_DIR"
+    - ssh "$EC2_USER@$EC2_HOST" "echo '$CI_REGISTRY_PASSWORD' | docker login -u '$CI_REGISTRY_USER' --password-stdin '$CI_REGISTRY'"
+    # - ssh "$EC2_USER@$EC2_HOST" "cd '$APP_DIR' && docker-compose down"
+    - ssh "$EC2_USER@$EC2_HOST" "cd '$APP_DIR' && docker-compose up -d"
+    - ssh "$EC2_USER@$EC2_HOST" "cd '$APP_DIR' && docker-compose pull"
+  when: on_success  # <-- avtomatik bo'ladi
